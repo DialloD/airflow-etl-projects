@@ -42,7 +42,8 @@ def check_quality(ti):
     if df["quantity"].lt(0).any():
         raise ValueError("Negative quantity detected")
 
-    print("Data quality checks passed")
+    # Failure test
+    raise ValueError("Simulated data quality failure")
 
 
 def transform_data(ti):
