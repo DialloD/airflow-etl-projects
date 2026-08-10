@@ -43,7 +43,7 @@ def check_quality(ti):
         raise ValueError("Negative quantity detected")
 
     # Failure test
-    raise ValueError("Simulated data quality failure")
+    # raise ValueError("Simulated data quality failure")
 
 
 def transform_data(ti):
@@ -60,14 +60,71 @@ def transform_data(ti):
 
 
 def load_data(ti):
-    data = ti.xcom_pull(task_ids="transform_data")
+    import urllib.request
+    import base64
+    import json
 
+    data = ti.xcom_pull(task_ids="transform_data")
     df = pd.DataFrame(data)
 
-    print("Loading data into target database...")
-    print(df)
+    host = "clickhouse.clickhouse.svc.cluster.local"
+    user = "airflow"
+    password = "Airflow123!"
 
-    print(f"{len(df)} rows loaded successfully")
+    auth = base64.b64encode(
+        f"{user}:{password}".encode()
+    ).decode()
+
+    create_sql = """
+    CREATE TABLE IF NOT EXISTS default.pharma_sales
+    (
+        sale_id UInt64,
+        product_name String,
+        quantity UInt32,
+        price Float64,
+        total_amount Float64,
+        version UInt64
+    )
+    ENGINE = ReplacingMergeTree(version)
+    ORDER BY sale_id
+    """
+
+    req = urllib.request.Request(
+        f"http://{host}:8123/",
+        data=create_sql.encode(),
+        method="POST",
+    )
+    req.add_header("Authorization", f"Basic {auth}")
+    urllib.request.urlopen(req).read()
+
+    rows = []
+
+    for i, row in df.iterrows():
+        rows.append({
+            "sale_id": int(row["product_id"]),
+            "product_name": str(row["product_name"]),
+            "quantity": int(row["quantity"]),
+            "price": float(row["price"]),
+            "total_amount": float(row["total_amount"]),
+            "version": 1,
+        })
+
+    payload = "\n".join(json.dumps(row) for row in rows)
+
+    insert_url = (
+        f"http://{host}:8123/"
+        "?query=INSERT%20INTO%20default.pharma_sales%20FORMAT%20JSONEachRow"
+    )
+
+    req = urllib.request.Request(
+        insert_url,
+        data=payload.encode(),
+        method="POST",
+    )
+    req.add_header("Authorization", f"Basic {auth}")
+    urllib.request.urlopen(req).read()
+
+    print(f"{len(rows)} rows loaded into ClickHouse")
 
 
 with DAG(
