@@ -2,7 +2,6 @@ from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.empty import EmptyOperator
 from datetime import datetime, timedelta
-import pandas as pd
 
 
 default_args = {
@@ -13,6 +12,7 @@ default_args = {
 
 
 def extract_data():
+    import pandas as pd
     data = {
         "product_id": [1, 2, 3, 4],
         "product_name": ["Doliprane", "Amoxicilline", "Ibuprofene", "Paracetamol"],
@@ -29,6 +29,7 @@ def extract_data():
 
 
 def check_quality(ti):
+    import pandas as pd
     data = ti.xcom_pull(task_ids="extract_data")
 
     df = pd.DataFrame(data)
@@ -47,6 +48,7 @@ def check_quality(ti):
 
 
 def transform_data(ti):
+    import pandas as pd
     data = ti.xcom_pull(task_ids="extract_data")
 
     df = pd.DataFrame(data)
@@ -60,6 +62,7 @@ def transform_data(ti):
 
 
 def load_data(ti):
+    import pandas as pd
     import urllib.request
     import base64
     import json
